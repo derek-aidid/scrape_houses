@@ -1,4 +1,4 @@
-# Scrapy settings for aidid_houses project
+# Scrapy settings for aidid_house project
 #
 # For simplicity, this file contains only settings considered important or
 # commonly used. You can find more settings consulting the documentation:
@@ -7,7 +7,7 @@
 #     https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
 #     https://docs.scrapy.org/en/latest/topics/spider-middleware.html
 
-BOT_NAME = "aidid_houses"
+BOT_NAME = "aidid_house"
 LOG_STDOUT = False
 
 SCRAPEOPS_API_KEY = '4a151e78-1817-48b6-b496-ec2297a76592'
@@ -16,12 +16,12 @@ SCRAPEOPS_FAKE_USER_AGENT_ENDPOINT = 'https://headers.scrapeops.io/v1/user-agent
 SCRAPEOPS_FAKE_USER_AGENT_ENABLED = True
 SCRAPEOPS_NUM_RESULTS = 10000
 
-SPIDER_MODULES = ["aidid_houses.spiders"]
-NEWSPIDER_MODULE = "aidid_houses.spiders"
+SPIDER_MODULES = ["aidid_house.spiders"]
+NEWSPIDER_MODULE = "aidid_house.spiders"
 
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
-#USER_AGENT = "aidid_houses (+http://www.yourdomain.com)"
+#USER_AGENT = "aidid_house (+http://www.yourdomain.com)"
 
 # Obey robots.txt rules
 ROBOTSTXT_OBEY = False
@@ -52,14 +52,15 @@ ROBOTSTXT_OBEY = False
 # Enable or disable spider middlewares
 # See https://docs.scrapy.org/en/latest/topics/spider-middleware.html
 SPIDER_MIDDLEWARES = {
-   "aidid_houses.middlewares.AididHouseSpiderMiddleware": 543,
+   "aidid_house.middlewares.AididHouseSpiderMiddleware": 543,
 }
 
 # Enable or disable downloader middlewares
 # See https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
+# See https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
 DOWNLOADER_MIDDLEWARES = {
-   # "aidid_houses.middlewares.AididHouseDownloaderMiddleware": 543,
-   'aidid_houses.middlewares.ScrapeOpsFakeBrowserHeaderAgentMiddleware': 400,
+   # "aidid_house.middlewares.AididHouseDownloaderMiddleware": 543,
+   'aidid_house.middlewares.ScrapeOpsFakeBrowserHeaderAgentMiddleware': 400,
    'scrapeops_scrapy.middleware.retry.RetryMiddleware': 550,
    'scrapy.downloadermiddlewares.retry.RetryMiddleware': None,
 }
@@ -74,8 +75,8 @@ EXTENSIONS = {
 # Configure item pipelines
 # See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
-   "aidid_houses.pipelines.AididHousePipeline": 300,
-   'aidid_houses.pipelines.SaveToPostgresPipeline': 400,
+   "aidid_house.pipelines.AididHousePipeline": 300,
+   'aidid_house.pipelines.SaveToPostgresPipeline': 400,
 }
 DOWNLOAD_FAIL_ON_DATALOSS = False
 

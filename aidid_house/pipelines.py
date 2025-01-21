@@ -1,4 +1,3 @@
-import mysql.connector
 from itemadapter import ItemAdapter
 import re
 import json
