@@ -1,5 +1,4 @@
 scrapy
-mysql-connector-python
 configparser
 scrapeops-scrapy
 psycopg2
