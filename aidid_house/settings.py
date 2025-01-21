@@ -8,6 +8,7 @@
 #     https://docs.scrapy.org/en/latest/topics/spider-middleware.html
 
 BOT_NAME = "aidid_houses"
+LOG_STDOUT = False
 
 SCRAPEOPS_API_KEY = '4a151e78-1817-48b6-b496-ec2297a76592'
 # signup at https://scrapeops.io
