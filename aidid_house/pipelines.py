@@ -6,7 +6,8 @@ from datetime import datetime
 import psycopg2
 from psycopg2.extras import Json
 
-
+import re
+from itemadapter import ItemAdapter
 
 
 class AididHousePipeline:
@@ -19,11 +20,70 @@ class AididHousePipeline:
                 value = re.sub(r'(\W)\1{2,}', r'\1', value)
             return value
 
+        def format_price(price):
+            """Format price to always show comma grouping and end with '萬'.
+
+            - If price already contains '萬': remove extra commas, then reformat.
+            - If price is plain digits and length (without commas) is less than 6, assume it is already in 萬 units.
+            - Otherwise (6 or more digits), treat it as full price and convert to 萬 (divide by 10000).
+            """
+            if not price:
+                return price
+
+            # Ensure we are working with a string and strip extra whitespace.
+            if not isinstance(price, str):
+                price = str(price)
+            price = price.strip()
+
+            # Remove any whitespace characters that may interfere.
+            price = re.sub(r'\s+', '', price)
+
+            # Case 1: Price already contains '萬'
+            if '萬' in price:
+                # Remove the 萬 and any commas before converting to an integer
+                num_str = price.replace('萬', '').replace(',', '')
+                try:
+                    num = int(num_str)
+                except ValueError:
+                    # If conversion fails, return original price.
+                    return price
+                # Format the number with commas and append 萬.
+                formatted = format(num, ",d")
+                return f"{formatted}萬"
+
+            # Case 2: Price does not contain '萬'
+            else:
+                # Remove any commas
+                num_str = price.replace(',', '')
+                try:
+                    num = int(num_str)
+                except ValueError:
+                    return price
+
+                # If the number has fewer than 6 digits, we assume it is already in 萬.
+                if len(num_str) < 6:
+                    formatted = format(num, ",d")
+                    return f"{formatted}萬"
+                else:
+                    # Otherwise, treat it as the full number (in unit 1) and convert to 萬.
+                    # Division by 10000. Using integer division here (assuming prices are multiples of 10k).
+                    result = num // 10000
+                    formatted = format(result, ",d")
+                    return f"{formatted}萬"
+
+        # Iterate over all fields in the item.
         for field_name, value in adapter.items():
-            if field_name not in ('url', 'community_info', 'rent_info', 'poi_info', 'images', 'trade_data', 'life_info', 'utility_info'):  # Skip cleaning for images
+            if field_name == 'price':
+                adapter[field_name] = format_price(value)
+            elif field_name not in (
+                    'url', 'community_info', 'rent_info',
+                    'poi_info', 'images', 'trade_data',
+                    'life_info', 'utility_info'
+            ):
                 adapter[field_name] = clean_field(value)
 
         return item
+
 
 class SaveToPostgresPipeline:
     config = configparser.ConfigParser()
