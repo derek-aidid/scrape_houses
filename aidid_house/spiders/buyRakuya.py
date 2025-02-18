@@ -3,7 +3,6 @@ from aidid_house.items import AididHouseItem
 import re
 import json
 
-
 class BuyrakuyaSpider(scrapy.Spider):
     name = "buyRakuya"
     allowed_domains = ["www.rakuya.com.tw"]
@@ -65,7 +64,15 @@ class BuyrakuyaSpider(scrapy.Spider):
         community_tag = response.css('a[href*="/community/"]')
         community_url = community_tag.attrib.get("href", "")
         community = community_tag.css("::text").get().strip() if community_tag else ""
-
+        # Extract basic_info from window.itemInfo
+        basic_info_str = response.css('script::text').re_first(r'window\.itemInfo\s*=\s*(\{.*?\});')
+        basic_info = {}
+        if basic_info_str:
+            try:
+                item_info = json.loads(basic_info_str)
+                basic_info = item_info.get('detail', {})  # Only keep the detail part
+            except Exception as e:
+                self.logger.error(f"Error parsing basic_info: {e}")
         # Make API request for additional info
         if house_id:
             api_url = f"https://www.rakuya.com.tw/sell_item/api/item-environment/list?ehid={house_id}"
@@ -83,7 +90,7 @@ class BuyrakuyaSpider(scrapy.Spider):
                 "space": space,
                 "floors": floor,
                 "community": community,
-                "basic_info": {},
+                "basic_info": basic_info,
                 "features": object_tag,
                 "review": '',
                 "images": images,
