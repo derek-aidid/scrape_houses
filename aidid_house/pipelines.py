@@ -5,7 +5,7 @@ import configparser
 from datetime import datetime
 import psycopg2
 from psycopg2.extras import Json
-
+import os
 import re
 from itemadapter import ItemAdapter
 
@@ -86,8 +86,9 @@ class AididHousePipeline:
 
 
 class SaveToPostgresPipeline:
+    config_path = os.path.join(os.path.dirname(__file__), 'config.ini')
     config = configparser.ConfigParser()
-    config.read('config.ini')
+    config.read(config_path)
     def __init__(self):
         self.conn = psycopg2.connect(
             host=self.config['postgres']['host'],
@@ -100,6 +101,10 @@ class SaveToPostgresPipeline:
 
         # Generate table name based on the current date
         self.table_name = f"houses_{datetime.now().strftime('%m_%d_%Y')}"
+        self.config.set('postgres', 'table_name', self.table_name)
+        with open('config.ini', 'w') as configfile:
+            self.config.write(configfile)
+        print(f"Updated table_name in config.ini to: {self.table_name}")
 
         # Create the table if it does not exist
         self.cur.execute(f"""
