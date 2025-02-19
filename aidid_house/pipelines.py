@@ -135,7 +135,10 @@ class SaveToPostgresPipeline:
         )
         """)
         self.conn.commit()
-
+        # Create an index on the "site" column
+        self.cur.execute(f"CREATE INDEX IF NOT EXISTS idx_site ON {self.table_name}(site);")
+        self.conn.commit()
+        print(f"Index on 'site' created for table {self.table_name}.")
     def process_item(self, item, spider):
         adapter = ItemAdapter(item)
 
