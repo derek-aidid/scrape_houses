@@ -6,10 +6,63 @@ from datetime import datetime
 import psycopg2
 from psycopg2.extras import Json
 import os
-import re
-from itemadapter import ItemAdapter
 
 
+# -------------------------------------------------------------------
+# Helper Functions for New Numeric Fields
+# -------------------------------------------------------------------
+def parse_sell_price(price):
+    """
+    Convert a price string like '1,314萬' to a numeric value.
+    If the string contains '萬', multiply the numeric part by 10,000.
+    Otherwise, return the float value.
+    """
+    if not price:
+        return None
+    price = price.strip().replace(',', '')
+    if '萬' in price:
+        num_str = price.replace('萬', '')
+        try:
+            num = float(num_str)
+            return num
+        except ValueError:
+            return None
+    else:
+        try:
+            return float(price)
+        except ValueError:
+            return None
+
+
+def parse_building_space(space):
+    """
+    Extract the first numeric value from a space string.
+
+    Examples:
+      "建坪 25.75坪 / 地坪 30.55坪 主建物 25.75坪" -> returns 25.75
+      "建坪 84.68坪 / 地坪 37.21坪 主  陽 84.68坪" -> returns 84.68
+      "地坪 218.55坪 主建物 --" -> returns 218.55
+      "建坪14.88" -> returns 14.88
+      "建物24.15坪 主陽14.92 坪" -> returns 24.15
+
+    If no number is found, returns None.
+    """
+    if not space:
+        return None
+    space = space.strip()
+    # Match the first number (integer or decimal)
+    match = re.search(r'([\d]+(?:\.[\d]+)?)', space)
+    if match:
+        try:
+            return float(match.group(1))
+        except ValueError:
+            return None
+    return None
+
+
+# -------------------------------------------------------------------
+# Pipeline for Cleaning Items
+# -------------------------------------------------------------------
 class AididHousePipeline:
     def process_item(self, item, spider):
         adapter = ItemAdapter(item)
@@ -21,57 +74,36 @@ class AididHousePipeline:
             return value
 
         def format_price(price):
-            """Format price to always show comma grouping and end with '萬'.
-
-            - If price already contains '萬': remove extra commas, then reformat.
-            - If price is plain digits and length (without commas) is less than 6, assume it is already in 萬 units.
-            - Otherwise (6 or more digits), treat it as full price and convert to 萬 (divide by 10000).
-            """
+            """Format price to always show comma grouping and end with '萬'."""
             if not price:
                 return price
-
-            # Ensure we are working with a string and strip extra whitespace.
             if not isinstance(price, str):
                 price = str(price)
             price = price.strip()
-
-            # Remove any whitespace characters that may interfere.
             price = re.sub(r'\s+', '', price)
-
-            # Case 1: Price already contains '萬'
             if '萬' in price:
-                # Remove the 萬 and any commas before converting to an integer
                 num_str = price.replace('萬', '').replace(',', '')
                 try:
                     num = int(num_str)
                 except ValueError:
-                    # If conversion fails, return original price.
                     return price
-                # Format the number with commas and append 萬.
                 formatted = format(num, ",d")
                 return f"{formatted}萬"
-
-            # Case 2: Price does not contain '萬'
             else:
-                # Remove any commas
                 num_str = price.replace(',', '')
                 try:
                     num = int(num_str)
                 except ValueError:
                     return price
-
-                # If the number has fewer than 6 digits, we assume it is already in 萬.
                 if len(num_str) < 6:
                     formatted = format(num, ",d")
                     return f"{formatted}萬"
                 else:
-                    # Otherwise, treat it as the full number (in unit 1) and convert to 萬.
-                    # Division by 10000. Using integer division here (assuming prices are multiples of 10k).
                     result = num // 10000
                     formatted = format(result, ",d")
                     return f"{formatted}萬"
 
-        # Iterate over all fields in the item.
+        # Process each field in the item.
         for field_name, value in adapter.items():
             if field_name == 'price':
                 adapter[field_name] = format_price(value)
@@ -81,14 +113,17 @@ class AididHousePipeline:
                     'life_info', 'utility_info'
             ):
                 adapter[field_name] = clean_field(value)
-
         return item
 
 
+# -------------------------------------------------------------------
+# Pipeline for Saving Items to PostgreSQL
+# -------------------------------------------------------------------
 class SaveToPostgresPipeline:
     config_path = os.path.join(os.path.dirname(__file__), 'config.ini')
     config = configparser.ConfigParser()
     config.read(config_path)
+
     def __init__(self):
         self.conn = psycopg2.connect(
             host=self.config['postgres']['host'],
@@ -102,11 +137,11 @@ class SaveToPostgresPipeline:
         # Generate table name based on the current date
         self.table_name = f"houses_{datetime.now().strftime('%m_%d_%Y')}"
         self.config.set('postgres', 'table_name', self.table_name)
-        with open('config.ini', 'w') as configfile:
+        with open(self.config_path, 'w') as configfile:
             self.config.write(configfile)
         print(f"Updated table_name in config.ini to: {self.table_name}")
 
-        # Create the table if it does not exist
+        # Create the table (including new fields sell_price and building_space)
         self.cur.execute(f"""
         CREATE TABLE IF NOT EXISTS {self.table_name} (
             id SERIAL PRIMARY KEY,
@@ -119,7 +154,9 @@ class SaveToPostgresPipeline:
             city TEXT,
             district TEXT,
             price TEXT,
+            sell_price DOUBLE PRECISION,
             space TEXT,
+            building_space DOUBLE PRECISION,
             layout TEXT,
             age TEXT,
             floors TEXT,
@@ -135,21 +172,28 @@ class SaveToPostgresPipeline:
         )
         """)
         self.conn.commit()
+
         # Create an index on the "site" column
         self.cur.execute(f"CREATE INDEX IF NOT EXISTS idx_site ON {self.table_name}(site);")
         self.conn.commit()
         print(f"Index on 'site' created for table {self.table_name}.")
+
     def process_item(self, item, spider):
         adapter = ItemAdapter(item)
 
-        # Serialize fields as JSON where needed
+        # Process new numeric fields using our helper functions.
+        sell_price_value = parse_sell_price(adapter.get('price'))
+        building_space_value = parse_building_space(adapter.get('space'))
+
+        # Serialize fields as JSON where needed.
         images = json.dumps(adapter.get('images')) if isinstance(adapter.get('images'), list) else adapter.get('images')
         basic_info = Json(adapter.get('basic_info')) if adapter.get('basic_info') else None
         life_info = Json(adapter.get('life_info')) if adapter.get('life_info') else None
         utility_info = Json(adapter.get('utility_info')) if adapter.get('utility_info') else None
         trade_data = Json(adapter.get('trade_data')) if adapter.get('trade_data') else None
 
-        # Insert item into the database
+        # Build the parameter tuple. Note that 'sell_price' and 'building_space'
+        # are stored as the numeric values we just computed.
         params = (
             adapter.get('site'),
             adapter.get('url'),
@@ -160,7 +204,9 @@ class SaveToPostgresPipeline:
             adapter.get('city'),
             adapter.get('district'),
             adapter.get('price'),
+            sell_price_value,
             adapter.get('space'),
+            building_space_value,
             adapter.get('layout'),
             adapter.get('age'),
             adapter.get('floors'),
@@ -170,7 +216,7 @@ class SaveToPostgresPipeline:
             life_info,
             utility_info,
             adapter.get('review'),
-            images,  # Store as JSON
+            images,
             trade_data,
             adapter.get('house_id')
         )
@@ -186,7 +232,9 @@ class SaveToPostgresPipeline:
             city, 
             district, 
             price, 
+            sell_price,
             space, 
+            building_space,
             layout, 
             age, 
             floors, 
@@ -200,10 +248,9 @@ class SaveToPostgresPipeline:
             trade_data, 
             house_id
         ) VALUES (
-            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
         ) ON CONFLICT (house_id) DO NOTHING
         """, params)
-
         self.conn.commit()
         return item
 
