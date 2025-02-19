@@ -4,7 +4,7 @@ import pandas as pd
 import requests
 from azure.core.credentials import AzureKeyCredential
 import json
-import configparser
+
 def safe_float(val):
     """Try to convert a value to float; return None if conversion fails."""
     try:
