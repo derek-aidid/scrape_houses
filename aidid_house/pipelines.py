@@ -184,8 +184,14 @@ class SaveToPostgresPipeline:
         # Create an index on the "district" column
         self.cur.execute(f"CREATE INDEX IF NOT EXISTS idx_district ON {self.table_name}(district);")
         self.conn.commit()
+        # Create an index on the "district" column
+        self.cur.execute(f"CREATE INDEX IF NOT EXISTS idx_longitude ON {self.table_name}(longitude);")
+        self.conn.commit()
+        # Create an index on the "district" column
+        self.cur.execute(f"CREATE INDEX IF NOT EXISTS idx_latitude ON {self.table_name}(latitude);")
+        self.conn.commit()
 
-        print(f"Indexes on 'site', 'city', and 'district' created for table {self.table_name}.")
+        print(f"Indexes on 'site', 'city', and 'district', 'longitude', 'latitude' created for table {self.table_name}.")
 
     def process_item(self, item, spider):
         adapter = ItemAdapter(item)
