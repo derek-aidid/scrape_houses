@@ -253,6 +253,25 @@ def aggregate_utility_info(raw) -> list:
     items = normalize_utility_info(raw)
     return items if items else []
 
+def aggregate_info_to_string(raw) -> str:
+    """
+    將 life_info 或 utility_info 的原始資料轉換為純文字格式。
+    每筆項目以「<名稱> 距離<距離>公尺」的格式呈現，項目間以 " || " 分隔，
+    並限制總長度不超過 50000 個字元。
+    """
+    items = normalize_life_info(raw)  # life_info 與 utility_info 格式相似，均可使用同一函式
+    parts = []
+    for item in items:
+        name = item.get("name", "").strip()
+        distance = item.get("distance")
+        if name:
+            part = name
+            if distance is not None:
+                # 將距離轉為整數顯示
+                part += f" 距離{int(distance)}公尺"
+            parts.append(part)
+    result = " || ".join(parts)
+    return result
 
 def normalize_trade_data(raw) -> list:
     """
@@ -440,6 +459,8 @@ def update_azure_index_rest(df, service_name, index_name, api_version, admin_key
             doc = {
                 "@search.action": "mergeOrUpload",
                 "id": str(row["id"]),
+                "house_name": str(row["name"]),
+                "house_address": str(row["address"]),
                 "site": str(row["site"]),
                 "url": str(row["url"]),
                 "city": str(row["city"]),
@@ -459,18 +480,19 @@ def update_azure_index_rest(df, service_name, index_name, api_version, admin_key
             else:
                 doc["geo_location"] = None
 
-            life_info_raw = load_json_field("life_info", row)
-            utility_info_raw = load_json_field("utility_info", row)
-
             # For basic_info, wrap normalized result in a list (if not empty)
             basic_info_raw = load_json_field("basic_info", row)
             basic_info_norm = normalize_basic_info(basic_info_raw)
             # Set basic_info as a single object (or null) instead of a list
             doc["basic_info"] = basic_info_norm if basic_info_norm and basic_info_norm != {} else None
 
-            # For life_info and utility_info, use aggregation functions to return lists
-            doc["life_info"] = aggregate_life_info(life_info_raw)  # already returns a list
-            doc["utility_info"] = aggregate_utility_info(utility_info_raw)  # already returns a list
+            # 將 life_info 轉換為純文字字串
+            life_info_raw = load_json_field("life_info", row)
+            doc["life_info"] = aggregate_info_to_string(life_info_raw)
+
+            # 將 utility_info 轉換為純文字字串
+            utility_info_raw = load_json_field("utility_info", row)
+            doc["utility_info"] = aggregate_info_to_string(utility_info_raw)
 
             # For trade_data, wrap normalized result in a list (if not empty)
             trade_data_raw = load_json_field("trade_data", row)
