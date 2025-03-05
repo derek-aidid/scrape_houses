@@ -272,7 +272,33 @@ def aggregate_info_to_string(raw) -> str:
             parts.append(part)
     result = " || ".join(parts)
     return result
-
+def normalize_trade_data_to_string(raw) -> str:
+    """
+    將 trade_data 資料轉換為純文字格式：
+    每筆交易資訊以「成交地址：<地址>，成交日期：<soldDate>，每坪單價：<uniPrice>，
+    總價：<totalPrice>，建物面積：<areaBuilding>」格式呈現，
+    多筆資訊以 " || " 分隔，最終結果長度限制為 50000 個字元。
+    """
+    items = normalize_trade_data(raw)
+    parts = []
+    for item in items:
+        address = item.get("address", "").strip()
+        soldDate = item.get("soldDate")
+        uniPrice = item.get("uniPrice")
+        totalPrice = item.get("totalPrice")
+        areaBuilding = item.get("areaBuilding")
+        part = f"成交地址：{address}"
+        if soldDate:
+            part += f"，成交日期：{soldDate}"
+        if uniPrice is not None:
+            part += f"，每坪單價：{uniPrice}"
+        if totalPrice is not None:
+            part += f"，總價：{totalPrice}"
+        if areaBuilding is not None:
+            part += f"，建物面積：{areaBuilding}"
+        parts.append(part)
+    result = " || ".join(parts)
+    return result[:50000]
 def normalize_trade_data(raw) -> list:
     """
     Normalizes trade_data from various sources into a list of dictionaries.
@@ -496,8 +522,7 @@ def update_azure_index_rest(df, service_name, index_name, api_version, admin_key
 
             # For trade_data, wrap normalized result in a list (if not empty)
             trade_data_raw = load_json_field("trade_data", row)
-            trade_data_norm = normalize_trade_data(trade_data_raw)
-            doc["trade_data"] = trade_data_norm  # Already a list
+            doc["trade_data"] = normalize_trade_data_to_string(trade_data_raw)
 
             documents.append(doc)
         payload = {"value": documents}
