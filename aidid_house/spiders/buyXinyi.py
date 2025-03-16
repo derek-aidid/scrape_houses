@@ -32,7 +32,7 @@ class BuyxinyiSpider(scrapy.Spider):
                 )
 
     def parse_list_page(self, response):
-        urls = response.xpath('//div[@class="buy-list-item "]/a/@href').getall()
+        urls = response.xpath('//div[contains(@class, "buy-list-item")]/a/@href').getall()
         for url in urls:
             full_url = f'https://www.sinyi.com.tw{url}'
             yield scrapy.Request(full_url, callback=self.parse_case_page)
@@ -42,46 +42,51 @@ class BuyxinyiSpider(scrapy.Spider):
         house_id_match = re.search(r'/house/(\w+)/', response.url)
         house_id = house_id_match.group(1) if house_id_match else 'Unknown'
 
-        name = response.xpath('//span[@class="buy-content-title-name"]/text()').get()
-        address = response.xpath('//span[@class="buy-content-title-address"]/text()').get()
+        name = response.xpath('//span[contains(@class, "buy-content-title-name")]/text()').get()
+        address = response.xpath('//span[contains(@class, "buy-content-title-address")]/text()').get()
 
         city_district_match = re.search(r'(\w+(?:市|縣))(\w+(?:區|鄉|鎮|市|鄉))', address)
         city = city_district_match.group(1) if city_district_match else '無'
         district = city_district_match.group(2) if city_district_match else '無'
 
-        price = ''.join(response.xpath('//div[@class="buy-content-title-total-price"]/text()').getall())
-        space = ' '.join(response.xpath('//div[@class="buy-content-detail-area"]/div/div/span/text()').getall())
-        layout = response.xpath('//div[@class="buy-content-detail-layout"]/div/text()').get()
-        age = ''.join(response.xpath('//div[@class="buy-content-detail-type"]/div/div/span/text()').getall())
-        floors = response.xpath('//div[@class="buy-content-detail-floor"]/text()').get()
-        community = ''.join(response.xpath('//div[@class="communityButton"]/span/text()').getall()).replace('社區', '').strip()
+        price = ''.join(response.xpath('//div[contains(@class, "buy-content-title-total-price")]/text()').getall())
+        space = ' '.join(
+            response.xpath('//div[contains(@class, "buy-content-detail-area")]/div/div/span/text()').getall())
+        layout = response.xpath('//div[contains(@class, "buy-content-detail-layout")]/div/text()').get()
+        age = ''.join(response.xpath('//div[contains(@class, "buy-content-detail-type")]/div/div/span/text()').getall())
+        floors = response.xpath('//div[contains(@class, "buy-content-detail-floor")]/text()').get()
+        community = ''.join(response.xpath('//div[contains(@class, "communityButton")]/span/text()').getall()).replace(
+            '社區', '').strip()
 
         # Extract and format basic info
-        basic_infos = response.xpath('//div[@class="buy-content-basic-cell"]')
+        basic_infos = response.xpath('//div[contains(@class, "buy-content-basic-cell")]')
         basic_info_dict = {}
         for basic_info in basic_infos:
             try:
-                title = basic_info.xpath('.//div[@class="basic-title"]/text()').get().strip()
-                value = basic_info.xpath('.//div[@class="basic-value"]/text()').get().strip()
+                title = basic_info.xpath('.//div[contains(@class, "basic-title")]/text()').get().strip()
+                value = basic_info.xpath('.//div[contains(@class, "basic-value")]/text()').get().strip()
                 basic_info_dict[title] = value
             except:
                 continue
-        # basic_info_str = ' | '.join(f"{key}: {value}" for key, value in basic_info_dict.items())
 
-        features = response.xpath('//div[@class="buy-content-obj-feature"]//div[@class="description-cell-text"]/text()').getall()
+        features = response.xpath(
+            '//div[contains(@class, "buy-content-obj-feature")]//div[contains(@class, "description-cell-text")]/text()').getall()
         features_str = ' | '.join(features)
 
         images = response.xpath('//div[@class="carousel-thumbnail-img "]/img/@src').getall()
 
         # Extract data from embedded JSON
-        script_text = response.xpath('//script[contains(text(), "__NEXT_DATA__")]/text()').get()
-        json_data = json.loads(re.search(r'__NEXT_DATA__\s*=\s*({.*?});', script_text).group(1))
+        script_text = response.xpath(
+            '//script[contains(@id, "__NEXT_DATA__") and contains(@type, "application/json")]/text()').get()
+        json_data = json.loads(script_text)
+
         lat = json_data['props']['initialReduxState']['buyReducer']['contentData']['latitude']
         lon = json_data['props']['initialReduxState']['buyReducer']['contentData']['longitude']
 
         trade_data = json_data['props']['initialReduxState']['buyReducer'].get('tradeData', {})
         life_info = json_data['props']['initialReduxState']['buyReducer']['detailData'].get('lifeInfo', [])
-        utility_life_info = json_data['props']['initialReduxState']['buyReducer']['detailData'].get('utilitylifeInfo', [{}])
+        utility_life_info = json_data['props']['initialReduxState']['buyReducer']['detailData'].get('utilitylifeInfo',
+                                                                                                    [{}])
 
         site = '信義房屋'
         if response.xpath('//span[@class="buy-content-sameTrade"]/text()').get() == '非信義物件':
