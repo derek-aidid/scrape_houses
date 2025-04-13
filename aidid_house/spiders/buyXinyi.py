@@ -9,10 +9,7 @@ class BuyxinyiSpider(scrapy.Spider):
 
     # Start URLs for fetching total pages dynamically
     cities = [
-        "Taipei-city", "NewTaipei-city", "Keelung-city", "Yilan-county", "Hsinchu-city", "Hsinchu-county",
-        "Taoyuan-city", "Miaoli-county", "Taichung-city", "Changhua-county", "Nantou-county", "Yunlin-county",
-        "Chiayi-city", "Chiayi-county", "Tainan-city", "Kaohsiung-city", "Pingtung-county", "Penghu-county",
-        "Taitung-county", "Hualien-county", "Kinmen-county"
+        "Taipei-city"
     ]
     start_urls = [f"https://www.sinyi.com.tw/buy/list/{city}/default-desc/1" for city in cities]
 
@@ -28,7 +25,8 @@ class BuyxinyiSpider(scrapy.Spider):
             # Generate URLs dynamically based on the total pages
             for i in range(1, total_pages + 1):
                 yield scrapy.Request(
-                    f"https://www.sinyi.com.tw/buy/list/{city}/default-desc/{i}", callback=self.parse_list_page
+                    f"https://www.sinyi.com.tw/buy/list/{city}/default-desc/{i}",
+                    callback=self.parse_list_page
                 )
 
     def parse_list_page(self, response):
@@ -38,9 +36,7 @@ class BuyxinyiSpider(scrapy.Spider):
             yield scrapy.Request(full_url, callback=self.parse_case_page)
 
     def parse_case_page(self, response):
-        # Extract the house_id from the URL
-        house_id_match = re.search(r'/house/(\w+)/', response.url)
-        house_id = house_id_match.group(1) if house_id_match else 'Unknown'
+        # Removed house_id extraction
 
         name = response.xpath('//span[contains(@class, "buy-content-title-name")]/text()').get()
         address = response.xpath('//span[contains(@class, "buy-content-title-address")]/text()').get()
@@ -50,13 +46,11 @@ class BuyxinyiSpider(scrapy.Spider):
         district = city_district_match.group(2) if city_district_match else '無'
 
         price = ''.join(response.xpath('//div[contains(@class, "buy-content-title-total-price")]/text()').getall())
-        space = ' '.join(
-            response.xpath('//div[contains(@class, "buy-content-detail-area")]/div/div/span/text()').getall())
+        space = ' '.join(response.xpath('//div[contains(@class, "buy-content-detail-area")]/div/div/span/text()').getall())
         layout = response.xpath('//div[contains(@class, "buy-content-detail-layout")]/div/text()').get()
         age = ''.join(response.xpath('//div[contains(@class, "buy-content-detail-type")]/div/div/span/text()').getall())
         floors = response.xpath('//div[contains(@class, "buy-content-detail-floor")]/text()').get()
-        community = ''.join(response.xpath('//div[contains(@class, "communityButton")]/span/text()').getall()).replace(
-            '社區', '').strip()
+        community = ''.join(response.xpath('//div[contains(@class, "communityButton")]/span/text()').getall()).replace('社區', '').strip()
 
         # Extract and format basic info
         basic_infos = response.xpath('//div[contains(@class, "buy-content-basic-cell")]')
@@ -69,15 +63,13 @@ class BuyxinyiSpider(scrapy.Spider):
             except:
                 continue
 
-        features = response.xpath(
-            '//div[contains(@class, "buy-content-obj-feature")]//div[contains(@class, "description-cell-text")]/text()').getall()
+        features = response.xpath('//div[contains(@class, "buy-content-obj-feature")]//div[contains(@class, "description-cell-text")]/text()').getall()
         features_str = ' | '.join(features)
 
         images = response.xpath('//div[@class="carousel-thumbnail-img "]/img/@src').getall()
 
         # Extract data from embedded JSON
-        script_text = response.xpath(
-            '//script[contains(@id, "__NEXT_DATA__") and contains(@type, "application/json")]/text()').get()
+        script_text = response.xpath('//script[contains(@id, "__NEXT_DATA__") and contains(@type, "application/json")]/text()').get()
         json_data = json.loads(script_text)
 
         lat = json_data['props']['initialReduxState']['buyReducer']['contentData']['latitude']
@@ -85,8 +77,7 @@ class BuyxinyiSpider(scrapy.Spider):
 
         trade_data = json_data['props']['initialReduxState']['buyReducer'].get('tradeData', {})
         life_info = json_data['props']['initialReduxState']['buyReducer']['detailData'].get('lifeInfo', [])
-        utility_life_info = json_data['props']['initialReduxState']['buyReducer']['detailData'].get('utilitylifeInfo',
-                                                                                                    [{}])
+        utility_life_info = json_data['props']['initialReduxState']['buyReducer']['detailData'].get('utilitylifeInfo', [{}])
 
         site = '信義房屋'
         if response.xpath('//span[@class="buy-content-sameTrade"]/text()').get() == '非信義物件':
@@ -95,7 +86,6 @@ class BuyxinyiSpider(scrapy.Spider):
 
         item = AididHouseItem(
             url=response.url,
-            house_id=house_id,
             site=site,
             name=name,
             address=address,

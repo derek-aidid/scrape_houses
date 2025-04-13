@@ -2,11 +2,12 @@ import scrapy
 from aidid_house.items import AididHouseItem
 import json
 import re
+from urllib.parse import quote
 
 class BuyHBSpider(scrapy.Spider):
     name = 'buyHB'
     allowed_domains = ['hbhousing.com.tw', 'api.map8.zone']
-    start_urls = ["https://www.hbhousing.com.tw/BuyHouse/"]
+    start_urls = ['https://www.hbhousing.com.tw/BuyHouse/']
 
     def parse(self, response):
         url = 'https://www.hbhousing.com.tw/ajax/dataService.aspx?job=search&path=house&kv=false'
@@ -41,16 +42,21 @@ class BuyHBSpider(scrapy.Spider):
 
                 if houses:
                     for house in houses:
-                        case_id = house.get('s')
-                        case_url = f'https://www.hbhousing.com.tw/detail/?sn={case_id}'
+                        # Extract identifier to build URLs
+                        sn = house.get('s')
+                        case_url = f'https://www.hbhousing.com.tw/detail/?sn={sn}'
                         images = [f'https:{img}' for img in house.get('i', [])]
 
-                        # Fetch latitude, longitude, and token
-                        map_url = f'https://www.hbhousing.com.tw/Detail/map.aspx?sn={case_id}'
+                        # Build map URL to fetch latitude and longitude
+                        map_url = f'https://www.hbhousing.com.tw/Detail/map.aspx?sn={sn}'
                         yield scrapy.Request(
                             url=map_url,
                             callback=self.get_lat_lon,
-                            meta={'case_id': case_id, 'images': images, 'case_url': case_url, "proxy": "https://dc.smartproxy.com:10000"},
+                            meta={
+                                'images': images,
+                                'case_url': case_url,
+                                "proxy": "https://dc.smartproxy.com:10000"
+                            },
                         )
             except Exception as e:
                 self.logger.error(f"Error parsing page data: {e}")
@@ -59,50 +65,60 @@ class BuyHBSpider(scrapy.Spider):
         """
         Extracts latitude and longitude from the map page and continues processing.
         """
-        case_id = response.meta.get('case_id')
         images = response.meta.get('images', [])
         case_url = response.meta.get('case_url')
-
         lon, lat = None, None
 
-        # Extract latitude and longitude
+        # Extract latitude and longitude using regex
         coord_match = re.search(r'lon=([\d.]+),lat=([\d.]+);', response.text)
         if coord_match:
             lon = float(coord_match.group(1))
             lat = float(coord_match.group(2))
 
-        # Proceed to fetch case details
+        # Proceed to fetch detailed case info
         yield scrapy.Request(
             url=case_url,
             callback=self.parse_case_page,
             meta={
-                'case_id': case_id, 'images': images, 'lon': lon, 'lat': lat, "proxy": "https://dc.smartproxy.com:10000"
+                'images': images,
+                'lon': lon,
+                'lat': lat,
+                "proxy": "https://dc.smartproxy.com:10000"
             },
         )
 
     def parse_case_page(self, response):
-        case_id = response.meta.get('case_id')
         images = response.meta.get('images', [])
         lon = response.meta.get('lon')
         lat = response.meta.get('lat')
 
         name = response.xpath('//div[@class="item-info"]/p[@class="item_name"]/text()').get()
         address = response.xpath('//div[@class="item-info"]/p[@class="item_add"]/text()').get()
+        address = address.strip() if address else None
 
-        city_district_match = re.search(r'(\w+(?:市|縣))(\w+(?:區|鄉|鎮|市|鄉))', address)
+        city_district_match = re.search(r'(\w+(?:市|縣))(\w+(?:區|鄉|鎮|市|鄉))', address) if address else None
         city = city_district_match.group(1) if city_district_match else '無'
         district = city_district_match.group(2) if city_district_match else '無'
 
         price = response.xpath('//div[@class="item_price"]/span[@class="hightlightprice"]/text()').get()
+        price = price.strip().replace(',', '') if price else None
+
         space = response.xpath('//ul[@class="item_other"]/li[@class="icon_space"]/text()').get()
+        space = space.strip() if space else None
+
         layout = response.xpath('//ul[@class="item_other"]/li[@class="icon_room"]/text()').get()
+        layout = layout.strip() if layout else None
+
         age = response.xpath('//ul[@class="item_other"]/li[@class="icon_age"]/text()').get()
+        age = age.strip() if age else None
+
         floors = response.xpath('//ul[@class="item_other"]/li[@class="icon_floor"]/text()').get()
+        floors = floors.strip() if floors else None
+
         community = response.xpath('//tr[td[text()="社區"]]/td[2]/text()').get()
         community = community.strip() if community else '無'
 
         basic_info_box = response.xpath('//div[contains(@class, "basicinfo-box")]')
-        # Store basic_info as a dictionary
         basic_info = {}
         for element in basic_info_box.xpath('.//table//tr'):
             key = element.xpath('.//td[1]/text()').get()
@@ -113,7 +129,7 @@ class BuyHBSpider(scrapy.Spider):
         features_elements = response.xpath('//ul[@class="features-other"]/li/text()').getall()
         features_str = ' | '.join([feature.strip() for feature in features_elements])
 
-        # Create item
+        # Create item without including any house-id field.
         item = AididHouseItem(
             url=response.url,
             site='住商',
@@ -134,7 +150,6 @@ class BuyHBSpider(scrapy.Spider):
             life_info=[],
             utility_info=[],
             review='',
-            house_id=case_id,
             images=images,
         )
 

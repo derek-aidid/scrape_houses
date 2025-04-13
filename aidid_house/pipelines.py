@@ -141,7 +141,7 @@ class SaveToPostgresPipeline:
             self.config.write(configfile)
         print(f"Updated table_name in config.ini to: {self.table_name}")
 
-        # Create the table (including new fields sell_price and building_space)
+        # Create the table without the house_id column
         self.cur.execute(f"""
         CREATE TABLE IF NOT EXISTS {self.table_name} (
             id SERIAL PRIMARY KEY,
@@ -167,31 +167,24 @@ class SaveToPostgresPipeline:
             utility_info JSONB,
             review TEXT,
             images JSONB,
-            trade_data JSONB,
-            house_id TEXT UNIQUE
+            trade_data JSONB
         )
         """)
         self.conn.commit()
 
-        # Create an index on the "site" column
+        # Create indexes on the selected columns
         self.cur.execute(f"CREATE INDEX IF NOT EXISTS idx_site ON {self.table_name}(site);")
         self.conn.commit()
-
-        # Create an index on the "city" column
         self.cur.execute(f"CREATE INDEX IF NOT EXISTS idx_city ON {self.table_name}(city);")
         self.conn.commit()
-
-        # Create an index on the "district" column
         self.cur.execute(f"CREATE INDEX IF NOT EXISTS idx_district ON {self.table_name}(district);")
         self.conn.commit()
-        # Create an index on the "district" column
         self.cur.execute(f"CREATE INDEX IF NOT EXISTS idx_longitude ON {self.table_name}(longitude);")
         self.conn.commit()
-        # Create an index on the "district" column
         self.cur.execute(f"CREATE INDEX IF NOT EXISTS idx_latitude ON {self.table_name}(latitude);")
         self.conn.commit()
 
-        print(f"Indexes on 'site', 'city', and 'district', 'longitude', 'latitude' created for table {self.table_name}.")
+        print(f"Indexes on 'site', 'city', 'district', 'longitude', and 'latitude' created for table {self.table_name}.")
 
     def process_item(self, item, spider):
         adapter = ItemAdapter(item)
@@ -207,8 +200,7 @@ class SaveToPostgresPipeline:
         utility_info = Json(adapter.get('utility_info')) if adapter.get('utility_info') else None
         trade_data = Json(adapter.get('trade_data')) if adapter.get('trade_data') else None
 
-        # Build the parameter tuple. Note that 'sell_price' and 'building_space'
-        # are stored as the numeric values we just computed.
+        # Build the parameter tuple without house_id.
         params = (
             adapter.get('site'),
             adapter.get('url'),
@@ -232,8 +224,7 @@ class SaveToPostgresPipeline:
             utility_info,
             adapter.get('review'),
             images,
-            trade_data,
-            adapter.get('house_id')
+            trade_data
         )
 
         self.cur.execute(f"""
@@ -260,11 +251,10 @@ class SaveToPostgresPipeline:
             utility_info, 
             review, 
             images, 
-            trade_data, 
-            house_id
+            trade_data
         ) VALUES (
-            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
-        ) ON CONFLICT (house_id) DO NOTHING
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+        )
         """, params)
         self.conn.commit()
         return item
