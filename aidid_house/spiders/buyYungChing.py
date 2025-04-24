@@ -3,118 +3,141 @@ import json
 import scrapy
 from aidid_house.items import AididHouseItem
 
+
 class BuyyongchingSpider(scrapy.Spider):
     name = "buyYungChing"
     allowed_domains = ["buy.yungching.com.tw"]
-    start_urls = [f"https://buy.yungching.com.tw/sell/result?city={i}" for i in range(1, 21)]
-
-    def start_requests(self):
-        # Use the API to fetch the total number of pages for each area
-        for area in self.areas:
-            api_url = f"https://buy.yungching.com.tw/api/v2/list?area={area}-&pinType=0&isAddRoom=true&pg=1&ps=30"
-            yield scrapy.Request(api_url, callback=self.parse_total_pages, meta={"area": area, "proxy": "https://dc.smartproxy.com:10000"})
-
     areas = [
         "台北市", "新北市", "桃園市", "台中市", "台南市", "高雄市", "基隆市", "新竹市", "嘉義市", "宜蘭縣",
         "新竹縣", "苗栗縣", "彰化縣", "南投縣", "雲林縣", "嘉義縣", "屏東縣", "花蓮縣", "台東縣",
         "澎湖縣", "金門縣", "連江縣"
     ]
+    start_urls = [f"https://buy.yungching.com.tw/list/{city}-_c" for city in areas]
 
-    def parse_total_pages(self, response):
-        area = response.meta["area"]
-        try:
-            data = json.loads(response.text)
-            total_pages = int(data["data"]["pa"]["totalPageCount"])
-            if total_pages > 0:
-                for page in range(1, total_pages + 1):
-                    url = f"https://buy.yungching.com.tw/list/{area}-_c/?pg={page}"
-                    yield scrapy.Request(url, callback=self.parse_list_page, meta={"proxy": "https://dc.smartproxy.com:10000"})
-            else:
-                self.logger.error(f"No pages found for area: {area}")
-        except Exception as e:
-            self.logger.error(f"Error parsing total pages for area {area}: {e}")
+    def parse(self, response):
+        raw = response.xpath('//script[@id="ng-state"]/text()').get()
+        if not raw:
+            self.logger.error("No <script id='ng-state'> found!")
+            return
+
+        data = json.loads(raw)
+
+        def find_total_page_count(obj):
+            if isinstance(obj, dict):
+                if "totalPageCount" in obj:
+                    return obj["totalPageCount"]
+                for v in obj.values():
+                    res = find_total_page_count(v)
+                    if res is not None:
+                        return res
+            elif isinstance(obj, list):
+                for item in obj:
+                    res = find_total_page_count(item)
+                    if res is not None:
+                        return res
+            return None
+
+        total_pages = find_total_page_count(data) or 1
+        for i in range(1, total_pages + 1):
+            yield scrapy.Request(
+                f"{response.url}/?pg={i}",
+                callback=self.parse_list_page,
+                meta={"proxy": "https://derek5g:IpRtT=9qS797renxnk@dc.decodo.com:10001"}
+            )
 
     def parse_list_page(self, response):
-        # Extract property URLs from the list page
         urls = response.xpath('//yc-ng-buy-house-card/a/@href').getall()
         for url in urls:
-            full_url = f'https://{url}'
-            yield scrapy.Request(full_url, callback=self.parse_case_page, meta={"proxy": "https://dc.smartproxy.com:10000"})
+            full_url = response.urljoin(url)
+            yield scrapy.Request(
+                full_url,
+                callback=self.parse_case_page,
+                meta={"proxy": "https://derek5g:IpRtT=9qS797renxnk@dc.decodo.com:10001"}
+            )
 
     def parse_case_page(self, response):
-        # Extract the JSON string inside the <script> tag
-        json_data = response.xpath('//script[@id="ng-state"]/text()').get()
+        try:
+            raw = response.xpath('//script[@id="ng-state"]/text()').get()
+            if not raw:
+                self.logger.error(f"No case JSON found at {response.url}")
+                return
 
-        if json_data:
-            try:
-                # Parse the JSON data
-                data = json.loads(json_data)
-                # Extract 'case_data' dynamically
-                case_data = next(iter(data.values()))['b']['data']
-                basic_info = case_data
-                # Extract the required fields
-                case_name = case_data.get("caseName")
-                address = case_data.get("address")
-                city = case_data.get("county")
-                district = case_data.get("district")
+            data = json.loads(raw)
+            case_data = next(iter(data.values()))['b']['data']
 
-                # Extract latitude and longitude
-                geo_info = case_data.get("geoInfo", {})
-                latitude = geo_info.get("latitude")
-                longitude = geo_info.get("longitude")
-                price = case_data.get("price")
+            # Basic fields
+            item = AididHouseItem(
+                url=response.url,
+                site='永慶房屋',
+                name=case_data.get("caseName"),
+                address=case_data.get("address"),
+                city=case_data.get("county"),
+                district=case_data.get("district"),
+                latitude=case_data.get("geoInfo", {}).get("latitude"),
+                longitude=case_data.get("geoInfo", {}).get("longitude"),
+                price=case_data.get("price"),
+                layout=response.xpath('//div[contains(@class, "room")]/text()').get(),
+                age=response.xpath('//div[contains(@class, "age")]/text()').re_first(r'屋齡([\d.]+)\s*年'),
+                space=' '.join(response.xpath('//div[contains(@class, "regarea")]//text()').getall()).strip(),
+                floors=response.xpath('//div[contains(@class, "floor")]/text()').get(),
+                community=response.xpath('//a[contains(@class, "community gtmPushEvent")]/h3/text()').get(),
+                basic_info=case_data,
+                features=case_data.get("caseFeature"),
+                life_info=[],
+                utility_info=[],
+                review='',
+                images=[f"https:{img.split(',')[0].split()[0].strip()}" for img in response.xpath('//div[@block_name="buy_buydetail_photos"]//img/@srcset').getall() if img]
+            )
 
-                # Extract highlights as features
-                highlights = case_data.get("highLights", [])
-                features = " | ".join(highlights) if highlights else "無"
+            # Prepare POI API request
+            house_id = response.url.split('/')[-1]
+            poi_api_url = f"https://buy.yungching.com.tw/api/v2/information/poi?id={house_id}"
+            headers = {
+                "referer": response.url,
+                "sec-fetch-dest": "empty",
+                "sec-fetch-mode": "cors",
+                "sec-fetch-site": "same-origin",
+                "priority": "u=1, i",
+            }
+            yield scrapy.Request(
+                poi_api_url,
+                callback=self.parse_poi_data,
+                headers=headers,
+                meta={"item": item, "proxy": "https://derek5g:IpRtT=9qS797renxnk@dc.decodo.com:10001"}
+            )
 
-                build_age = response.xpath('//div[contains(@class, "age")]/text()').re_first(r'屋齡([\d.]+)\s*年')
-                floors = response.xpath('//div[contains(@class, "floor")]/text()').get()
-                layout = response.xpath('//div[contains(@class, "room")]/text()').get()
-                # Extract all text under the div with class "regarea"
-                space = response.xpath('//div[contains(@class, "regarea")]//text()').getall()
-                space = ' '.join([text.strip() for text in space if text.strip()])
-                community = response.xpath('//a[contains(@class, "community gtmPushEvent")]/h3/text()').get()
-                images = response.xpath('//div[@block_name="buy_buydetail_photos"]//img/@srcset').getall()
+        except Exception as e:
+            self.logger.error(f"Error parsing case page {response.url}: {e}")
 
-                # Extract only the first URL from each srcset and build full URLs
-                photo_urls = []
-                for img_set in images:
-                    first_url = img_set.split(',')[0].split()[0].strip()
-                    if first_url:
-                        full_url = f"https:{first_url}"
-                        photo_urls.append(full_url)
-                # Remove duplicates if any
-                photo_urls = list(set(photo_urls))
+    def parse_poi_data(self, response):
+        item = response.meta["item"]
+        try:
+            pois = json.loads(response.text).get("data", {}).get("pois", [])
+            life_categories = {"休閒娛樂", "超商", "停車場", "購物"}
+            utility_categories = {"交通", "醫療", "政府", "學校"}
 
-                site = '永慶房屋'
+            life_list, util_list = [], []
+            for poi in pois:
+                cat = poi.get("poiItem")
+                for detail in poi.get("poiDetails", []):
+                    entry = {
+                        "poiSubName": detail.get("poiSubName"),
+                        "poiTitle": detail.get("poiTitle"),
+                        "poiLat": detail.get("poiLat"),
+                        "poiLng": detail.get("poiLng"),
+                        "distance": detail.get("distance"),
+                        "walkTime": detail.get("walkTime"),
+                        "walkDistance": detail.get("walkDistance")
+                    }
+                    if cat in life_categories:
+                        life_list.append(entry)
+                    elif cat in utility_categories:
+                        util_list.append(entry)
 
-                # Build the item without including any house_id field.
-                item = AididHouseItem(
-                    url=response.url,
-                    site=site,
-                    name=case_name,
-                    address=address,
-                    latitude=latitude,
-                    longitude=longitude,
-                    city=city,
-                    district=district,
-                    price=price,
-                    layout=layout,
-                    age=build_age,
-                    space=space,
-                    floors=floors,
-                    community=community,
-                    basic_info=basic_info,
-                    features=features,
-                    life_info='',
-                    utility_info='',
-                    review='',
-                    images=photo_urls,
-                )
+            item["life_info"] = life_list
+            item["utility_info"] = util_list
+        except Exception as e:
+            self.logger.error(f"Error parsing POI data: {e}")
 
-                # Yield the item directly (POI API call removed)
-                yield item
-
-            except Exception as e:
-                self.logger.error(f"Error parsing case page {response.url}: {e}")
+        # Finally, yield the enriched item
+        yield item

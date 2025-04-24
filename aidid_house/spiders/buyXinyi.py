@@ -9,7 +9,11 @@ class BuyxinyiSpider(scrapy.Spider):
 
     # Start URLs for fetching total pages dynamically
     cities = [
-        "Taipei-city"
+        "Taipei-city", 'NewTaipei-city', 'Keelung-city', 'Yilan-county', 'Hsinchu-city',
+        'Hsinchu-county', 'Taoyuan-city', 'Miaoli-county', 'Taichung-city', 'Chiayi-county'
+        'Changhua-county', 'Nantou-county', 'Yunlin-county', 'Chiayi-city', 'Tainan-city',
+        'Kaohsiung-city', 'Pingtung-county', 'Penghu-county', 'Taitung-county', 'Hualien-county',
+        'Kinmen-county',
     ]
     start_urls = [f"https://www.sinyi.com.tw/buy/list/{city}/default-desc/1" for city in cities]
 
@@ -66,7 +70,7 @@ class BuyxinyiSpider(scrapy.Spider):
         features = response.xpath('//div[contains(@class, "buy-content-obj-feature")]//div[contains(@class, "description-cell-text")]/text()').getall()
         features_str = ' | '.join(features)
 
-        images = response.xpath('//div[@class="carousel-thumbnail-img "]/img/@src').getall()
+        images = response.xpath('//div[contains(@class, "carousel-thumbnail-img")]/img/@src').getall()
 
         # Extract data from embedded JSON
         script_text = response.xpath('//script[contains(@id, "__NEXT_DATA__") and contains(@type, "application/json")]/text()').get()
@@ -80,8 +84,8 @@ class BuyxinyiSpider(scrapy.Spider):
         utility_life_info = json_data['props']['initialReduxState']['buyReducer']['detailData'].get('utilitylifeInfo', [{}])
 
         site = '信義房屋'
-        if response.xpath('//span[@class="buy-content-sameTrade"]/text()').get() == '非信義物件':
-            source = response.xpath('//div[@class="buy-content-store-title"]/text()').get()
+        if response.xpath('//span[contains(@class, "buy-content-sameTrade")]/text()').get() == '非信義物件':
+            source = response.xpath('//div[contains(@class, "buy-content-store-title")]/text()').get()
             site = f'信義房屋 ({source})'
 
         item = AididHouseItem(
