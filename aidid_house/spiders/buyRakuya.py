@@ -20,7 +20,7 @@ class BuyrakuyaSpider(scrapy.Spider):
                 yield scrapy.Request(
                     url=f"{response.url}&page={page}",
                     callback=self.parse_pages,
-                    meta={"proxy": "https://derek5g:IpRtT=9qS797renxnk@dc.decodo.com:10001"}
+                    meta={"proxy": "https://dereksun:WrVt~x79Y0jGugas1r@gate.decodo.com:7000"}
                 )
         except json.JSONDecodeError as e:
             self.logger.error(f"Error parsing JSON: {e}")
@@ -30,8 +30,9 @@ class BuyrakuyaSpider(scrapy.Spider):
             yield scrapy.Request(
                 url=response.urljoin(href),
                 callback=self.parse_case,
-                meta={"proxy": "https://derek5g:IpRtT=9qS797renxnk@dc.decodo.com:10001"}
+                meta={"proxy": "https://dereksun:WrVt~x79Y0jGugas1r@gate.decodo.com:7000"}
             )
+
 
     def parse_case(self, response):
         site = "樂屋網"
@@ -108,7 +109,7 @@ class BuyrakuyaSpider(scrapy.Spider):
                     "images":     images,
                     "trade_data": {}
                 },
-                "proxy": "https://derek5g:IpRtT=9qS797renxnk@dc.decodo.com:10001"
+                "proxy": "https://dereksun:WrVt~x79Y0jGugas1r@gate.decodo.com:7000"
             }
             yield scrapy.Request(
                 url=api_url,
