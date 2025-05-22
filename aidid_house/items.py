@@ -30,3 +30,16 @@ class AididHouseItem(scrapy.Item):
     review = scrapy.Field()
     images = scrapy.Field()
     house_id = scrapy.Field()
+
+class SalesmanItem(scrapy.Item):
+    site = scrapy.Field()
+    salesman = scrapy.Field()
+    link = scrapy.Field()
+
+    brand_name = scrapy.Field()
+    store_name = scrapy.Field()
+    legal_company_name = scrapy.Field()
+
+    phone = scrapy.Field()
+    profile_image_url = scrapy.Field()  # New field for profile image
+    property_url = scrapy.Field()
