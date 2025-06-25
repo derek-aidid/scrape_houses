@@ -27,7 +27,7 @@ class BuyHBSpider(scrapy.Spider):
                     method='POST',
                     formdata=payload,
                     callback=self.parse_page,
-                    meta={'page_number': page_number, "proxy": "https://derek5g:IpRtT=9qS797renxnk@dc.decodo.com:10000"}
+                    meta={'page_number': page_number, "proxy": "https://derek5g:s2Ep_52qpMyjM6iNlv@dc.decodo.com:10000"}
                 )
 
             except Exception as e:
@@ -55,7 +55,7 @@ class BuyHBSpider(scrapy.Spider):
                             meta={
                                 'images': images,
                                 'case_url': case_url,
-                                "proxy": "https://derek5g:IpRtT=9qS797renxnk@dc.decodo.com:10000"
+                                "proxy": "https://derek5g:s2Ep_52qpMyjM6iNlv@dc.decodo.com:10000"
                             },
                         )
             except Exception as e:
@@ -83,7 +83,7 @@ class BuyHBSpider(scrapy.Spider):
                 'images': images,
                 'lon': lon,
                 'lat': lat,
-                "proxy": "https://derek5g:IpRtT=9qS797renxnk@dc.decodo.com:10000"
+                "proxy": "https://derek5g:s2Ep_52qpMyjM6iNlv@dc.decodo.com:10000"
             },
         )
 

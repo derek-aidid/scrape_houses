@@ -22,7 +22,7 @@ class Buy5168Spider(scrapy.Spider):
             yield scrapy.Request(
                 url=api_url,
                 callback=self.parse_api,
-                meta={"city": city, "proxy": "https://dereksun:WrVt~x79Y0jGugas1r@gate.decodo.com:7000"}
+                meta={"city": city, "proxy": "https://dereksun:q2av~lZjj4Rq5md9SP@gate.decodo.com:7000"}
             )
 
     def parse_api(self, response):
@@ -36,7 +36,7 @@ class Buy5168Spider(scrapy.Spider):
                 yield scrapy.Request(
                     url=page_url,
                     callback=self.parse_page,
-                    meta={"city": city, "page": page, "proxy": "https://dereksun:WrVt~x79Y0jGugas1r@gate.decodo.com:7000"}
+                    meta={"city": city, "page": page, "proxy": "https://dereksun:q2av~lZjj4Rq5md9SP@gate.decodo.com:7000"}
                 )
         except json.JSONDecodeError as e:
             self.logger.error(f"Failed to parse API response for city {response.meta['city']}: {e}")
@@ -49,7 +49,7 @@ class Buy5168Spider(scrapy.Spider):
             yield scrapy.Request(
                 url=case_url,
                 callback=self.parse_case,
-                meta={"city": response.meta["city"], "page": response.meta["page"], "proxy": "https://dereksun:WrVt~x79Y0jGugas1r@gate.decodo.com:7000"}
+                meta={"city": response.meta["city"], "page": response.meta["page"], "proxy": "https://dereksun:q2av~lZjj4Rq5md9SP@gate.decodo.com:7000"}
             )
 
     def parse_case(self, response):
