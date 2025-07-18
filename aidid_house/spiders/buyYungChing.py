@@ -42,7 +42,7 @@ class BuyyongchingSpider(scrapy.Spider):
             yield scrapy.Request(
                 f"{response.url}/?pg={i}",
                 callback=self.parse_list_page,
-                meta={"proxy": "https://derek5g:s2Ep_52qpMyjM6iNlv@dc.decodo.com:10000"}
+                meta={"proxy": "https://dereksun:q2av~lZjj4Rq5md9SP@gate.decodo.com:7000"}
             )
 
     def parse_list_page(self, response):
@@ -52,7 +52,7 @@ class BuyyongchingSpider(scrapy.Spider):
             yield scrapy.Request(
                 full_url,
                 callback=self.parse_case_page,
-                meta={"proxy": "https://derek5g:s2Ep_52qpMyjM6iNlv@dc.decodo.com:10000"}
+                meta={"proxy": "https://dereksun:q2av~lZjj4Rq5md9SP@gate.decodo.com:7000"}
             )
 
     def parse_case_page(self, response):
@@ -103,7 +103,7 @@ class BuyyongchingSpider(scrapy.Spider):
                 poi_api_url,
                 callback=self.parse_poi_data,
                 headers=headers,
-                meta={"item": item, "proxy": "https://derek5g:s2Ep_52qpMyjM6iNlv@dc.decodo.com:10000"}
+                meta={"item": item, "proxy": "https://dereksun:q2av~lZjj4Rq5md9SP@gate.decodo.com:7000"}
             )
 
         except Exception as e:
