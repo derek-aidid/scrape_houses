@@ -2,11 +2,15 @@ import scrapy
 import re
 import json
 from urllib.parse import urlparse, parse_qs
-from aidid_house.items import AididHouseItem
+from aidid_house.items import AididHouseItem, HouseUpdateItem
 
 class BuyrakuyaSpider(scrapy.Spider):
     name = "buyRakuya"
     allowed_domains = ["www.rakuya.com.tw"]
+    
+    # This will be populated by the pipeline
+    existing_urls = set()
+    
     start_urls = [f"https://www.rakuya.com.tw/sell/result?city={i}" for i in range(1, 21)]
 
     def parse(self, response):
@@ -20,19 +24,25 @@ class BuyrakuyaSpider(scrapy.Spider):
                 yield scrapy.Request(
                     url=f"{response.url}&page={page}",
                     callback=self.parse_pages,
-                    meta={"proxy": "https://dereksun:q2av~lZjj4Rq5md9SP@gate.decodo.com:7000"}
+                    meta={"proxy": "https://dereksun:L4m2_7cFdsl0GAaepi@gate.decodo.com:7000"}
                 )
         except json.JSONDecodeError as e:
             self.logger.error(f"Error parsing JSON: {e}")
 
     def parse_pages(self, response):
         for href in response.xpath('//div[@class="box__communityIntro"]/section/a/@href').getall():
-            yield scrapy.Request(
-                url=response.urljoin(href),
-                callback=self.parse_case,
-                meta={"proxy": "https://dereksun:q2av~lZjj4Rq5md9SP@gate.decodo.com:7000"}
-            )
-
+            full_url = response.urljoin(href)
+            
+            if full_url in self.existing_urls:
+                # It's an existing house, just send an update signal
+                yield HouseUpdateItem(url=full_url)
+            else:
+                # It's a new house, scrape the full details
+                yield scrapy.Request(
+                    url=full_url,
+                    callback=self.parse_case,
+                    meta={"proxy": "https://dereksun:L4m2_7cFdsl0GAaepi@gate.decodo.com:7000"}
+                )
 
     def parse_case(self, response):
         site = "樂屋網"
@@ -109,7 +119,7 @@ class BuyrakuyaSpider(scrapy.Spider):
                     "images":     images,
                     "trade_data": {}
                 },
-                "proxy": "https://dereksun:q2av~lZjj4Rq5md9SP@gate.decodo.com:7000"
+                "proxy": "https://dereksun:L4m2_7cFdsl0GAaepi@gate.decodo.com:7000"
             }
             yield scrapy.Request(
                 url=api_url,
@@ -124,7 +134,7 @@ class BuyrakuyaSpider(scrapy.Spider):
                 price=price, layout=layout, age=age, space=space,
                 floors=floor, community=community, basic_info={},
                 features=object_tag, life_info={}, utility_info={},
-                review="", images=images, trade_data={}
+                review="", images=images, trade_data={}, house_id=""
             )
 
     def parse_api_response(self, response):

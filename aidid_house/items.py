@@ -1,13 +1,7 @@
-# Define here the models for your scraped items
-#
-# See documentation in:
-# https://docs.scrapy.org/en/latest/topics/items.html
-
 import scrapy
 
-
 class AididHouseItem(scrapy.Item):
-    # define the fields for your item here like:
+    # This is the full item for a house listing, matching your original schema.
     url = scrapy.Field()
     site = scrapy.Field()
     name = scrapy.Field()
@@ -31,15 +25,19 @@ class AididHouseItem(scrapy.Item):
     images = scrapy.Field()
     house_id = scrapy.Field()
 
+class HouseUpdateItem(scrapy.Item):
+    # This is a lightweight item used only to update the 'last_seen'
+    # timestamp for an existing house URL.
+    url = scrapy.Field()
+
 class SalesmanItem(scrapy.Item):
+    # This item is currently not used but kept for potential future use.
     site = scrapy.Field()
     salesman = scrapy.Field()
     link = scrapy.Field()
-
     brand_name = scrapy.Field()
     store_name = scrapy.Field()
     legal_company_name = scrapy.Field()
-
     phone = scrapy.Field()
-    profile_image_url = scrapy.Field()  # New field for profile image
+    profile_image_url = scrapy.Field()
     property_url = scrapy.Field()
