@@ -34,9 +34,11 @@ EXTENSIONS = {
 # The order is important:
 # 1. AididHousePipeline cleans the data.
 # 2. DeltaScrapePipeline handles all database logic (filtering, saving, updating).
+# 3. RakuyaTradePipeline handles rakuya trade data specifically.
 ITEM_PIPELINES = {
    "aidid_house.pipelines.AididHousePipeline": 100,
    "aidid_house.pipelines.DeltaScrapePipeline": 200,
+   "aidid_house.pipelines.RakuyaTradePipeline": 300,
 }
 
 DOWNLOAD_FAIL_ON_DATALOSS = False
