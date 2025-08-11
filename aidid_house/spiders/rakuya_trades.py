@@ -9,8 +9,8 @@ class RakuyaTradesSpider(scrapy.Spider):
     allowed_domains = ['rakuya.com.tw']
 
     # 代理設定
-    proxy_meta = {"proxy": "https://derek5g:QnpyfBLz4cxpx1Z@gate.decodo.com:10000"}
-    #proxy_meta = {"proxy": "http://dc.decodo.com:10000"}
+    # proxy_meta = {"proxy": "https://derek5g:QnpyfBLz4cxpx1Z@gate.decodo.com:10000"}
+    proxy_meta = {"proxy": "http://dc.decodo.com:10000"}
 
     # 城市代碼對應表
     city_mapping = {
